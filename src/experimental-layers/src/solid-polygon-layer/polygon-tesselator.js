@@ -24,9 +24,8 @@
 // - 3D surfaces (top and sides only)
 // - 3D wireframes (not yet)
 import * as Polygon from './polygon';
-import earcut from 'earcut';
-import {experimental} from '../../core';
-const {get, count, flattenVertices, fillArray} = experimental;
+import {experimental} from 'deck.gl/dist/core';
+const {get, count, fillArray} = experimental;
 
 // Maybe deck.gl or luma.gl needs to export this
 function getPickingColor(index) {
@@ -145,22 +144,6 @@ function getPolygonOffsets(polygons) {
   return offsets;
 }
 
-// Returns the offset of each hole polygon in the flattened array for that polygon
-function getHoleIndices(complexPolygon) {
-  let holeIndices = null;
-  if (count(complexPolygon) > 1) {
-    let polygonStartIndex = 0;
-    holeIndices = [];
-    complexPolygon.forEach(polygon => {
-      polygonStartIndex += count(polygon);
-      holeIndices.push(polygonStartIndex);
-    });
-    // Last element points to end of the flat array, remove it
-    holeIndices.pop();
-  }
-  return holeIndices;
-}
-
 function calculateIndices({polygons, IndexType = Uint32Array}) {
   // Calculate length of index array (3 * number of triangles)
   const indexCount = 3 * getTriangleCount(polygons);
@@ -177,57 +160,12 @@ function calculateIndices({polygons, IndexType = Uint32Array}) {
   // 2. offset them by the number of indices in previous polygons
   let i = 0;
   polygons.forEach((polygon, polygonIndex) => {
-    for (const index of calculateSurfaceIndices(polygon)) {
+    for (const index of Polygon.getSurfaceIndices(polygon)) {
       attribute[i++] = index + offsets[polygonIndex];
     }
   });
 
   return attribute;
-}
-
-/*
- * Get vertex indices for drawing complexPolygon mesh
- * @private
- * @param {[Number,Number,Number][][]} complexPolygon
- * @returns {[Number]} indices
- */
-function calculateSurfaceIndices(complexPolygon) {
-  // Prepare an array of hole indices as expected by earcut
-  const holeIndices = getHoleIndices(complexPolygon);
-  // Flatten the polygon as expected by earcut
-  const verts = flattenVertices2(complexPolygon);
-  // Let earcut triangulate the polygon
-  return earcut(verts, holeIndices, 3);
-}
-
-// TODO - refactor
-function isContainer(value) {
-  return Array.isArray(value) || ArrayBuffer.isView(value) ||
-    value !== null && typeof value === 'object';
-}
-
-// TODO - refactor, this file should not need a separate flatten func
-// Flattens nested array of vertices, padding third coordinate as needed
-export function flattenVertices2(nestedArray, {result = [], dimensions = 3} = {}) {
-  let index = -1;
-  let vertexLength = 0;
-  const length = count(nestedArray);
-  while (++index < length) {
-    const value = get(nestedArray, index);
-    if (isContainer(value)) {
-      flattenVertices(value, {result, dimensions});
-    } else {
-      if (vertexLength < dimensions) { // eslint-disable-line
-        result.push(value);
-        vertexLength++;
-      }
-    }
-  }
-  // Add a third coordinate if needed
-  if (vertexLength > 0 && vertexLength < dimensions) {
-    result.push(0);
-  }
-  return result;
 }
 
 function updatePositions(
@@ -255,7 +193,7 @@ function updatePositions(
   };
 
   polygons.forEach((polygon, polygonIndex) => {
-    forEachVertex(polygon, (vertex, vertexIndex) => { // eslint-disable-line
+    Polygon.forEachVertex(polygon, (vertex, vertexIndex) => { // eslint-disable-line
       const x = get(vertex, 0);
       const y = get(vertex, 1);
       const z = get(vertex, 2) || 0;
@@ -326,15 +264,4 @@ function calculatePickingColors({polygons, pointCount}) {
     i += color.length * vertexCount;
   });
   return attribute;
-}
-
-function forEachVertex(polygon, visitor) {
-  if (Polygon.isSimple(polygon)) {
-    polygon.forEach(visitor);
-    return;
-  }
-
-  polygon.forEach(simplePolygon => {
-    simplePolygon.forEach(visitor);
-  });
 }

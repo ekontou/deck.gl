@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-import {COORDINATE_SYSTEM, Layer, experimental} from '../../core';
+import {COORDINATE_SYSTEM, Layer, experimental} from 'deck.gl/dist/core';
 const {enable64bitSupport, get} = experimental;
 import {GL, Model, Geometry} from 'luma.gl';
 

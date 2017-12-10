@@ -22,7 +22,7 @@ import test from 'tape-catch';
 
 import {
   MeshLayer, PathMarkerLayer, PathOutlineLayer,
-  Arrow2DGeometry,
+  Arrow2DGeometry, SolidPolygonLayer,
   outline
 } from 'deck.gl-layers';
 
@@ -30,7 +30,10 @@ test('Top-level imports', t => {
   t.ok(MeshLayer, 'MeshLayer symbol imported');
   t.ok(PathMarkerLayer, 'PathMarkerLayer symbol imported');
   t.ok(PathOutlineLayer, 'PathOutlineLayer symbol imported');
+  t.ok(SolidPolygonLayer, 'SolidPolygonLayer symbol imported');
   t.ok(Arrow2DGeometry, 'Arrow2DGeometry symbol imported');
   t.ok(outline, 'outline symbol imported');
   t.end();
 });
+
+import './polygon-tesselation.spec';

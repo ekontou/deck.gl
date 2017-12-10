@@ -18,8 +18,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-import {experimental} from '../../core';
+import {experimental} from 'deck.gl/dist/core';
 const {get, count} = experimental;
+import earcut from 'earcut';
 
 // Basic polygon support
 //
@@ -83,9 +84,61 @@ export function forEachVertex(polygon, visitor) {
     return;
   }
 
-  let vertexIndex = 0;
   polygon.forEach(simplePolygon => {
-    simplePolygon.forEach((v, i, p) => visitor(v, vertexIndex, polygon));
-    vertexIndex++;
+    simplePolygon.forEach(visitor);
   });
+}
+
+// Returns the offset of each hole polygon in the flattened array for that polygon
+function getHoleIndices(complexPolygon) {
+  let holeIndices = null;
+  if (count(complexPolygon) > 1) {
+    let polygonStartIndex = 0;
+    holeIndices = [];
+    complexPolygon.forEach(polygon => {
+      polygonStartIndex += count(polygon);
+      holeIndices.push(polygonStartIndex);
+    });
+    // Last element points to end of the flat array, remove it
+    holeIndices.pop();
+  }
+  return holeIndices;
+}
+
+// Flattens nested array of vertices, padding third coordinate as needed
+function flattenVertices(nestedArray, dimensions = 3, result = []) {
+  let index = -1;
+  let vertexLength = 0;
+  const length = count(nestedArray);
+  while (++index < length) {
+    const value = get(nestedArray, index);
+    if (Array.isArray(value) || ArrayBuffer.isView(value)) {
+      flattenVertices(value, dimensions, result);
+    } else {
+      if (vertexLength < dimensions) { // eslint-disable-line
+        result.push(value);
+        vertexLength++;
+      }
+    }
+  }
+  // Add a third coordinate if needed
+  if (vertexLength > 0 && vertexLength < dimensions) {
+    result.push(0);
+  }
+  return result;
+}
+
+/*
+ * Get vertex indices for drawing complexPolygon mesh
+ * @private
+ * @param {[Number,Number,Number][][]} complexPolygon
+ * @returns {[Number]} indices
+ */
+export function getSurfaceIndices(complexPolygon) {
+  // Prepare an array of hole indices as expected by earcut
+  const holeIndices = getHoleIndices(complexPolygon);
+  // Flatten the polygon as expected by earcut
+  const verts = flattenVertices(complexPolygon, 2, []);
+  // Let earcut triangulate the polygon
+  return earcut(verts, holeIndices, 2);
 }

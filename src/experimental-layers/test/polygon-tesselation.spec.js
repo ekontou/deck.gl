@@ -20,8 +20,9 @@
 
 import test from 'tape-catch';
 
-import * as Polygon from 'deck.gl/core-layers/solid-polygon-layer/polygon';
-import {PolygonTesselator} from 'deck.gl/core-layers/solid-polygon-layer/polygon-tesselator';
+import * as Polygon from 'deck.gl/experimental-layers/solid-polygon-layer/polygon';
+import {PolygonTesselator}
+  from 'deck.gl/experimental-layers/solid-polygon-layer/polygon-tesselator';
 
 import Immutable from 'immutable';
 
