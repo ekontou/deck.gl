@@ -77,6 +77,7 @@ const TEST_BROWSER_CONFIG = {
   resolve: {
     alias: {
       'deck.gl/test': resolve('./test'),
+      'deck.gl/dist': resolve('./src'),
       'deck.gl': resolve('./src')
     }
   },

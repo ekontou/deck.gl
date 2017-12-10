@@ -31,6 +31,7 @@ import {
 import {testInitializeLayer} from 'deck.gl/test/test-utils';
 
 import SolidPolygonLayer from 'deck.gl/core-layers/solid-polygon-layer/solid-polygon-layer';
+import {SolidPolygonLayer2} from 'deck.gl/experimental-layers/src';
 
 // add tests
 export default function coreLayersBench(suite) {
@@ -71,6 +72,7 @@ export default function coreLayersBench(suite) {
       const layer = new PathLayer({data: data.lines});
       testInitializeLayer({layer});
     })
+
     .add('SolidPolygonLayer#initialize (flat)', () => {
       const layer = new SolidPolygonLayer({data: data.choropleths.features});
       testInitializeLayer({layer});
@@ -84,6 +86,55 @@ export default function coreLayersBench(suite) {
     .add('SolidPolygonLayer#initialize (wireframe)', () => {
       const layer = new SolidPolygonLayer({data: data.choropleths.features,
         extruded: true, wireframe: true
+      });
+      testInitializeLayer({layer});
+    })
+    .add('SolidPolygonLayer#initialize (flat,fp64)', () => {
+      const layer = new SolidPolygonLayer({data: data.choropleths.features, fp64: true});
+      testInitializeLayer({layer});
+    })
+    .add('SolidPolygonLayer#initialize (extruded,fp64)', () => {
+      const layer = new SolidPolygonLayer({data: data.choropleths.features,
+        extruded: true, fp64: true
+      });
+      testInitializeLayer({layer});
+    })
+    .add('SolidPolygonLayer#initialize (wireframe,fp64)', () => {
+      const layer = new SolidPolygonLayer({data: data.choropleths.features,
+        extruded: true, wireframe: true, fp64: true
+      });
+      testInitializeLayer({layer});
+    })
+
+    .add('SolidPolygonLayer2#initialize (flat)', () => {
+      const layer = new SolidPolygonLayer2({data: data.choropleths.features});
+      testInitializeLayer({layer});
+    })
+    .add('SolidPolygonLayer2#initialize (extruded)', () => {
+      const layer = new SolidPolygonLayer2({data: data.choropleths.features,
+        extruded: true
+      });
+      testInitializeLayer({layer});
+    })
+    .add('SolidPolygonLayer2#initialize (wireframe)', () => {
+      const layer = new SolidPolygonLayer2({data: data.choropleths.features,
+        extruded: true, wireframe: true
+      });
+      testInitializeLayer({layer});
+    })
+    .add('SolidPolygonLayer2#initialize (flat,fp64)', () => {
+      const layer = new SolidPolygonLayer2({data: data.choropleths.features, fp64: true});
+      testInitializeLayer({layer});
+    })
+    .add('SolidPolygonLayer2#initialize (extruded,fp64)', () => {
+      const layer = new SolidPolygonLayer2({data: data.choropleths.features,
+        extruded: true, fp64: true
+      });
+      testInitializeLayer({layer});
+    })
+    .add('SolidPolygonLayer2#initialize (wireframe,fp64)', () => {
+      const layer = new SolidPolygonLayer2({data: data.choropleths.features,
+        extruded: true, wireframe: true, fp64: true
       });
       testInitializeLayer({layer});
     })
