@@ -25,7 +25,7 @@
 // - 3D wireframes (not yet)
 import * as Polygon from './polygon';
 import {experimental} from 'deck.gl/dist/core';
-const {get, count, fillArray} = experimental;
+const {fillArray} = experimental;
 
 // Maybe deck.gl or luma.gl needs to export this
 function getPickingColor(index) {
@@ -35,14 +35,6 @@ function getPickingColor(index) {
     (index >> 8) & 255,
     (index >> 16) & 255
   ];
-}
-
-function parseColor(color) {
-  if (!Array.isArray(color)) {
-    color = [get(color, 0), get(color, 1), get(color, 2), get(color, 3)];
-  }
-  color[3] = Number.isFinite(color[3]) ? color[3] : 255;
-  return color;
 }
 
 const DEFAULT_COLOR = [0, 0, 0, 255]; // Black
@@ -135,7 +127,7 @@ function getTriangleCount(polygons) {
 
 // Returns the offsets of each complex polygon in the combined array of all polygons
 function getPolygonOffsets(polygons) {
-  const offsets = new Array(count(polygons) + 1);
+  const offsets = new Array(polygons.length + 1);
   offsets[0] = 0;
   let offset = 0;
   polygons.forEach((polygon, i) => {
@@ -195,9 +187,9 @@ function updatePositions(
 
   polygons.forEach((polygon, polygonIndex) => {
     Polygon.forEachVertex(polygon, (vertex, vertexIndex) => { // eslint-disable-line
-      const x = get(vertex, 0);
-      const y = get(vertex, 1);
-      const z = get(vertex, 2) || 0;
+      const x = vertex[0];
+      const y = vertex[1];
+      const z = vertex[2] || 0;
       let xLow;
       let yLow;
 
@@ -245,8 +237,10 @@ function updateColors({colors}, {polygons, getColor}) {
   let i = 0;
   polygons.forEach((complexPolygon, polygonIndex) => {
     // Calculate polygon color
-    let color = getColor(polygonIndex);
-    color = parseColor(color);
+    const color = getColor(polygonIndex);
+    if (isNaN(color[3])) {
+      color[3] = 255;
+    }
 
     const vertexCount = Polygon.getVertexCount(complexPolygon);
     fillArray({target: colors, source: color, start: i, count: vertexCount});

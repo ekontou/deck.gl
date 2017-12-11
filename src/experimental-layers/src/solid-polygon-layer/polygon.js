@@ -19,7 +19,7 @@
 // THE SOFTWARE.
 
 import {experimental} from 'deck.gl/dist/core';
-const {get, count} = experimental;
+const {flattenVertices} = experimental;
 import earcut from 'earcut';
 
 // Basic polygon support
@@ -35,9 +35,9 @@ import earcut from 'earcut';
  * @return {Boolean} - true if the polygon is a simple polygon (i.e. not an array of polygons)
  */
 export function isSimple(polygon) {
-  return count(polygon) >= 1 &&
-    count(get(polygon, 0)) >= 2 &&
-    Number.isFinite(get(get(polygon, 0), 0));
+  return polygon.length >= 1 &&
+    polygon[0].length >= 2 &&
+    Number.isFinite(polygon[0][0]);
 }
 
 /**
@@ -58,8 +58,8 @@ export function normalize(polygon, {dimensions = 3} = {}) {
  */
 export function getVertexCount(polygon) {
   return isSimple(polygon) ?
-    count(polygon) :
-    polygon.reduce((length, simplePolygon) => length + count(simplePolygon), 0);
+    polygon.length :
+    polygon.reduce((length, simplePolygon) => length + simplePolygon.length, 0);
 }
 
 // Return number of triangles needed to tesselate the polygon
@@ -67,7 +67,7 @@ export function getTriangleCount(polygon) {
   let triangleCount = 0;
   let first = true;
   for (const simplePolygon of normalize(polygon)) {
-    const size = count(simplePolygon);
+    const size = simplePolygon.length;
     if (first) {
       triangleCount += size >= 3 ? size - 2 : 0;
     } else {
@@ -92,40 +92,17 @@ export function forEachVertex(polygon, visitor) {
 // Returns the offset of each hole polygon in the flattened array for that polygon
 function getHoleIndices(complexPolygon) {
   let holeIndices = null;
-  if (count(complexPolygon) > 1) {
+  if (complexPolygon.length > 1) {
     let polygonStartIndex = 0;
     holeIndices = [];
     complexPolygon.forEach(polygon => {
-      polygonStartIndex += count(polygon);
+      polygonStartIndex += polygon.length;
       holeIndices.push(polygonStartIndex);
     });
     // Last element points to end of the flat array, remove it
     holeIndices.pop();
   }
   return holeIndices;
-}
-
-// Flattens nested array of vertices, padding third coordinate as needed
-function flattenVertices(nestedArray, dimensions = 3, result = []) {
-  let index = -1;
-  let vertexLength = 0;
-  const length = count(nestedArray);
-  while (++index < length) {
-    const value = get(nestedArray, index);
-    if (Array.isArray(value) || ArrayBuffer.isView(value)) {
-      flattenVertices(value, dimensions, result);
-    } else {
-      if (vertexLength < dimensions) { // eslint-disable-line
-        result.push(value);
-        vertexLength++;
-      }
-    }
-  }
-  // Add a third coordinate if needed
-  if (vertexLength > 0 && vertexLength < dimensions) {
-    result.push(0);
-  }
-  return result;
 }
 
 /*
@@ -138,7 +115,7 @@ export function getSurfaceIndices(complexPolygon) {
   // Prepare an array of hole indices as expected by earcut
   const holeIndices = getHoleIndices(complexPolygon);
   // Flatten the polygon as expected by earcut
-  const verts = flattenVertices(complexPolygon, 2, []);
+  const verts = flattenVertices(complexPolygon, {dimensions: 2, result: []});
   // Let earcut triangulate the polygon
   return earcut(verts, holeIndices, 2);
 }
