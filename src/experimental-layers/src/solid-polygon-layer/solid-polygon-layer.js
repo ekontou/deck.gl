@@ -29,7 +29,11 @@ import vs from './solid-polygon-layer-vertex.glsl';
 import vs64 from './solid-polygon-layer-vertex-64.glsl';
 import fs from './solid-polygon-layer-fragment.glsl';
 
+const defaultLineColor = [0x0, 0x0, 0x0, 0xFF];
+const defaultFillColor = [0x0, 0x0, 0x0, 0xFF];
+
 const defaultProps = {
+  filled: true,
   // Whether to extrude
   extruded: false,
   // Whether to draw a GL.LINES wireframe of the polygon
@@ -43,8 +47,9 @@ const defaultProps = {
   getPolygon: f => get(f, 'polygon') || get(f, 'geometry.coordinates'),
   // Accessor for extrusion height
   getElevation: f => get(f, 'elevation') || get(f, 'properties.height') || 0,
-  // Accessor for color
-  getColor: f => get(f, 'color') || get(f, 'properties.color'),
+  // Accessor for colors
+  getFillColor: f => get(f, 'fillColor') || get(f, 'properties.color') || defaultFillColor,
+  getLineColor: f => get(f, 'lineColor') || get(f, 'properties.color') || defaultLineColor,
 
   // Optional settings for 'lighting' shader module
   lightSettings: {
@@ -80,8 +85,12 @@ const SIDE_WIRE_POSITIONS = new Float32Array([
 ]);
 
 // Model types
-const TOP_MODEL = 1;
-const SIDE_MODEL = 2;
+const MODEL_TYPES = {
+  TOP: 1,
+  SIDE: 2,
+  WIRE: 4,
+  ALL: 7
+};
 
 export default class SolidPolygonLayer extends Layer {
   getShaders() {
@@ -92,36 +101,44 @@ export default class SolidPolygonLayer extends Layer {
 
   initializeState() {
     const {gl} = this.context;
-    this.setState({
-      models: this._getModels(gl),
+    this.setState(Object.assign({
       numInstances: 0,
       IndexType: gl.getExtension('OES_element_index_uint') ? Uint32Array : Uint16Array
-    });
+    }, this._getModels(gl)));
 
     const {attributeManager} = this.state;
     const noAlloc = true;
     /* eslint-disable max-len */
     attributeManager.add({
-      indices: {size: 1, modelType: TOP_MODEL, isIndexed: true, update: this.calculateIndices, noAlloc},
-      positions: {size: 3, accessor: ['extruded', 'fp64'], update: this.calculatePositions, noAlloc},
-      nextPositions: {size: 3, modelType: SIDE_MODEL, accessor: ['extruded', 'fp64'], update: this.calculateNextPositions, noAlloc},
-      elevations: {size: 1, accessor: ['extruded', 'getElevation'], update: this.calculateElevations, noAlloc},
-      colors: {size: 4, type: GL.UNSIGNED_BYTE, accessor: 'getColor', update: this.calculateColors, noAlloc},
-      pickingColors: {size: 3, type: GL.UNSIGNED_BYTE, update: this.calculatePickingColors, noAlloc}
+      indices: {size: 1, isIndexed: true, update: this.calculateIndices, noAlloc,
+        modelType: MODEL_TYPES.TOP},
+      positions: {size: 3, accessor: ['extruded', 'fp64'], update: this.calculatePositions, noAlloc,
+        modelType: MODEL_TYPES.ALL},
+      nextPositions: {size: 3, accessor: ['extruded', 'fp64'], update: this.calculateNextPositions, noAlloc,
+        modelType: MODEL_TYPES.SIDE + MODEL_TYPES.WIRE},
+      elevations: {size: 1, accessor: ['extruded', 'getElevation'], update: this.calculateElevations, noAlloc,
+        modelType: MODEL_TYPES.ALL},
+      fillColors: {alias: 'colors', size: 4, type: GL.UNSIGNED_BYTE, accessor: 'getFillColor', update: this.calculateFillColors, noAlloc,
+        modelType: MODEL_TYPES.TOP + MODEL_TYPES.SIDE},
+      lineColors: {alias: 'colors', size: 4, type: GL.UNSIGNED_BYTE, accessor: 'getLineColor', update: this.calculateLineColors, noAlloc,
+        modelType: MODEL_TYPES.WIRE},
+      pickingColors: {size: 3, type: GL.UNSIGNED_BYTE, update: this.calculatePickingColors, noAlloc,
+        modelType: MODEL_TYPES.ALL}
     });
     /* eslint-enable max-len */
   }
 
-  updateAttribute({props, oldProps, changeFlags}) {
+  updateAttribute({props, oldProps}) {
     if (props.fp64 !== oldProps.fp64) {
       const {attributeManager} = this.state;
-      attributeManager.invalidateAll();
 
       if (props.fp64 && props.coordinateSystem === COORDINATE_SYSTEM.LNGLAT) {
         /* eslint-disable max-len */
         attributeManager.add({
-          positions64xyLow: {size: 2, accessor: 'fp64', update: this.calculatePositionsLow},
-          nextPositions64xyLow: {size: 2, modelType: SIDE_MODEL, accessor: 'fp64', update: this.calculateNextPositionsLow}
+          positions64xyLow: {size: 2, accessor: 'fp64', update: this.calculatePositionsLow,
+            modelType: MODEL_TYPES.ALL},
+          nextPositions64xyLow: {size: 2, accessor: 'fp64', update: this.calculateNextPositionsLow,
+            modelType: MODEL_TYPES.SIDE + MODEL_TYPES.WIRE}
         });
         /* eslint-enable max-len */
       } else {
@@ -153,18 +170,20 @@ export default class SolidPolygonLayer extends Layer {
     super.updateState(updateParams);
 
     this.updateGeometry(updateParams);
+    this.updateAttribute(updateParams);
+
     const {props, oldProps} = updateParams;
 
     const regenerateModels = props.fp64 !== oldProps.fp64 ||
+      props.filled !== oldProps.filled ||
       props.extruded !== oldProps.extruded ||
       props.wireframe !== oldProps.wireframe;
 
     if (regenerateModels) {
-      this.setState({
+      this.setState(Object.assign({
         // Set a flag to set attributes to new models
-        modelsChanged: true,
-        models: this._getModels(this.context.gl)
-      });
+        modelsChanged: true
+      }, this._getModels(this.context.gl)));
     }
 
     if (props.extruded !== oldProps.extruded) {
@@ -229,43 +248,49 @@ export default class SolidPolygonLayer extends Layer {
   }
 
   _updateAttributes(attributes) {
-    this.state.models.forEach(model => {
-      const isTop = !model.uniforms.isSideVertex;
+    const {modelsByName} = this.state;
 
-      if (isTop) {
-        model.setVertexCount(this.state.numVertex);
-      } else {
+    for (const modelName in modelsByName) {
+      const model = modelsByName[modelName];
+      const isInstanced = modelName !== 'TOP';
+
+      if (isInstanced) {
         model.setInstanceCount(this.state.numInstances);
+      } else {
+        model.setVertexCount(this.state.numVertex);
       }
 
       const newAttributes = {};
       for (const attributeName in attributes) {
         const attribute = attributes[attributeName];
 
-        if ((isTop && attribute.modelType !== SIDE_MODEL) ||
-          (!isTop && attribute.modelType !== TOP_MODEL)) {
-          newAttributes[attributeName] = {
+        if (attribute.modelType & MODEL_TYPES[modelName]) {
+          newAttributes[attribute.alias || attributeName] = {
             isIndexed: attribute.isIndexed,
-            instanced: !isTop || (!this.props.extruded && attributeName === 'elevations'),
+            instanced: isInstanced || (!this.props.extruded && attributeName === 'elevations'),
             size: attribute.size,
             value: attribute.value
           };
         }
       }
       model.setAttributes(newAttributes);
-    });
+    }
   }
 
   _getModels(gl) {
-    const {id, extruded, wireframe} = this.props;
+    const {id, filled, extruded, wireframe} = this.props;
 
-    return [
-      !wireframe && new Model(gl, Object.assign({}, this.getShaders(), {
+    const models = {};
+
+    if (filled) {
+      models.TOP = new Model(gl, Object.assign({}, this.getShaders(), {
         id: `${id}-top`,
         geometry: new Geometry({
           drawMode: GL.TRIANGLES,
           attributes: {
-            vertexPositions: {size: 2, instanced: 1, value: new Float32Array([0, 1])}
+            vertexPositions: {size: 2, instanced: 1, value: new Float32Array([0, 1])},
+            nextPositions: {size: 3, instanced: 1, value: new Float32Array(3)},
+            nextPositions64xyLow: {size: 2, instanced: 1, value: new Float32Array(2)}
           }
         }),
         uniforms: {
@@ -276,15 +301,16 @@ export default class SolidPolygonLayer extends Layer {
         isInstanced: true,
         isIndexed: true,
         shaderCache: this.context.shaderCache
-      })),
-
-      extruded && new Model(gl, Object.assign({}, this.getShaders(), {
+      }));
+    }
+    if (filled && extruded) {
+      models.SIDE = new Model(gl, Object.assign({}, this.getShaders(), {
         id: `${id}-side`,
         geometry: new Geometry({
-          drawMode: wireframe ? GL.LINE_STRIP : GL.TRIANGLE_STRIP,
+          drawMode: GL.TRIANGLE_STRIP,
           vertexCount: 4,
           attributes: {
-            vertexPositions: {size: 2, value: wireframe ? SIDE_WIRE_POSITIONS : SIDE_FILL_POSITIONS}
+            vertexPositions: {size: 2, value: SIDE_FILL_POSITIONS}
           }
         }),
         uniforms: {
@@ -292,9 +318,30 @@ export default class SolidPolygonLayer extends Layer {
         },
         isInstanced: true,
         shaderCache: this.context.shaderCache
-      }))
-    ].filter(Boolean);
+      }));
+    }
+    if (extruded && wireframe) {
+      models.WIRE = new Model(gl, Object.assign({}, this.getShaders(), {
+        id: `${id}-wire`,
+        geometry: new Geometry({
+          drawMode: GL.LINE_STRIP,
+          vertexCount: 4,
+          attributes: {
+            vertexPositions: {size: 2, value: SIDE_WIRE_POSITIONS}
+          }
+        }),
+        uniforms: {
+          isSideVertex: 1
+        },
+        isInstanced: true,
+        shaderCache: this.context.shaderCache
+      }));
+    }
 
+    return {
+      models: [models.WIRE, models.SIDE, models.TOP].filter(Boolean),
+      modelsByName: models
+    };
   }
 
   calculateIndices(attribute) {
@@ -330,9 +377,16 @@ export default class SolidPolygonLayer extends Layer {
     }
   }
 
-  calculateColors(attribute) {
+  calculateFillColors(attribute) {
     attribute.value = this.state.polygonTesselator.colors({
-      getColor: polygonIndex => this.props.getColor(this.props.data[polygonIndex])
+      key: 'fillColors',
+      getColor: polygonIndex => this.props.getFillColor(this.props.data[polygonIndex])
+    });
+  }
+  calculateLineColors(attribute) {
+    attribute.value = this.state.polygonTesselator.colors({
+      key: 'lineColors',
+      getColor: polygonIndex => this.props.getLineColor(this.props.data[polygonIndex])
     });
   }
 

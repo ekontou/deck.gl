@@ -93,16 +93,16 @@ export class PolygonTesselator {
     return this.attributes.nextPositions64xyLow;
   }
 
-  elevations({getElevation = x => 100} = {}) {
+  elevations({key = 'elevations', getElevation = x => 100} = {}) {
     const {attributes, polygons, pointCount} = this;
-    attributes.elevations = attributes.elevations || new Float32Array(pointCount);
-    return updateElevations(attributes, {polygons, getElevation});
+    attributes[key] = attributes[key] || new Float32Array(pointCount);
+    return updateElevations(attributes[key], {polygons, getElevation});
   }
 
-  colors({getColor = x => DEFAULT_COLOR} = {}) {
+  colors({key = 'colors', getColor = x => DEFAULT_COLOR} = {}) {
     const {attributes, polygons, pointCount} = this;
-    attributes.colors = attributes.colors || new Uint8ClampedArray(pointCount * 4);
-    return updateColors(attributes, {polygons, getColor});
+    attributes[key] = attributes[key] || new Uint8ClampedArray(pointCount * 4);
+    return updateColors(attributes[key], {polygons, getColor});
   }
 
   pickingColors() {
@@ -220,7 +220,7 @@ function updatePositions(
   popStartVertex();
 }
 
-function updateElevations({elevations}, {polygons, getElevation}) {
+function updateElevations(elevations, {polygons, getElevation}) {
   let i = 0;
   polygons.forEach((complexPolygon, polygonIndex) => {
     // Calculate polygon color
@@ -233,7 +233,7 @@ function updateElevations({elevations}, {polygons, getElevation}) {
   return elevations;
 }
 
-function updateColors({colors}, {polygons, getColor}) {
+function updateColors(colors, {polygons, getColor}) {
   let i = 0;
   polygons.forEach((complexPolygon, polygonIndex) => {
     // Calculate polygon color

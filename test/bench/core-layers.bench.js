@@ -31,7 +31,7 @@ import {
 import {testInitializeLayer} from 'deck.gl/test/test-utils';
 
 import SolidPolygonLayer from 'deck.gl/core-layers/solid-polygon-layer/solid-polygon-layer';
-import {SolidPolygonLayer2} from 'deck.gl/experimental-layers/src';
+import {SolidPolygonLayer as SolidPolygonLayer2} from 'deck.gl/experimental-layers/src';
 
 // add tests
 export default function coreLayersBench(suite) {
