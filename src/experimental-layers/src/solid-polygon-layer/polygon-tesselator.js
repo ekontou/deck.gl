@@ -24,7 +24,7 @@
 // - 3D surfaces (top and sides only)
 // - 3D wireframes (not yet)
 import * as Polygon from './polygon';
-import {experimental} from 'deck.gl/dist/core';
+import {experimental} from 'deck.gl';
 const {fillArray} = experimental;
 
 // Maybe deck.gl or luma.gl needs to export this

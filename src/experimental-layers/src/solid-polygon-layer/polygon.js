@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-import {experimental} from 'deck.gl/dist/core';
+import {experimental} from 'deck.gl';
 const {flattenVertices} = experimental;
 import earcut from 'earcut';
 
