@@ -29,10 +29,11 @@ const {get, count, fillArray} = experimental;
 
 // Maybe deck.gl or luma.gl needs to export this
 function getPickingColor(index) {
+  index++;
   return [
-    (index + 1) % 256,
-    Math.floor((index + 1) / 256) % 256,
-    Math.floor((index + 1) / 256 / 256) % 256
+    index & 255,
+    (index >> 8) & 255,
+    (index >> 16) & 255
   ];
 }
 
